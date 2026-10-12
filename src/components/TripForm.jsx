@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
 
 const countryCityData = {
-  'India': ['Hyderabad', 'Mumbai', 'Delhi', 'Bengaluru', 'Jaipur', 'Goa', 'Chennai', 'Kolkata', 'Agra', 'Varanasi', 'Kochi'],
-  'United States': ['New York', 'San Francisco', 'Los Angeles', 'Chicago', 'Miami', 'Las Vegas', 'Seattle', 'Washington D.C.'],
-  'Japan': ['Tokyo', 'Kyoto', 'Osaka', 'Hiroshima', 'Sapporo', 'Fukuoka', 'Nara'],
-  'United Kingdom': ['London', 'Edinburgh', 'Manchester', 'Bath', 'Oxford', 'Cambridge'],
+  'India': ['Hyderabad', 'Mumbai', 'Delhi', 'Bengaluru', 'Jaipur', 'Goa', 'Chennai', 'Kolkata', 'Agra', 'Varanasi', 'Kochi', 'Pune', 'Ahmedabad'],
+  'Pakistan': ['Hyderabad', 'Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot'],
+  'United States': ['New York', 'San Francisco', 'Los Angeles', 'Chicago', 'Miami', 'Las Vegas', 'Seattle', 'Washington D.C.', 'Boston', 'Austin'],
+  'United Kingdom': ['London', 'Edinburgh', 'Manchester', 'Bath', 'Oxford', 'Cambridge', 'Birmingham', 'Liverpool'],
+  'United Arab Emirates': ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
+  'Saudi Arabia': ['Riyadh', 'Jeddah', 'Mecca', 'Medina', 'Dammam', 'Al Khobar'],
   'France': ['Paris', 'Nice', 'Lyon', 'Marseille', 'Bordeaux', 'Strasbourg'],
-  'United Arab Emirates': ['Dubai', 'Abu Dhabi', 'Sharjah'],
-  'Germany': ['Berlin', 'Munich', 'Frankfurt', 'Hamburg'],
-  'Singapore': ['Singapore']
+  'Japan': ['Tokyo', 'Kyoto', 'Osaka', 'Hiroshima', 'Sapporo', 'Fukuoka', 'Nara'],
+  'Germany': ['Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Cologne'],
+  'Singapore': ['Singapore'],
+  'Canada': ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa'],
+  'Australia': ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Gold Coast'],
+  'Italy': ['Rome', 'Milan', 'Florence', 'Venice', 'Naples'],
+  'Thailand': ['Bangkok', 'Phuket', 'Chiang Mai', 'Pattaya', 'Krabi'],
+  'Turkey': ['Istanbul', 'Antalya', 'Cappadocia', 'Ankara', 'Izmir']
 };
 
 const transportOptions = [
@@ -27,7 +34,7 @@ const budgetTiers = [
   {
     id: 'BALANCED',
     label: 'Balanced Standard',
-    desc: 'Smart traveler: versatile capsule wardrobe, day-to-evening outfits, AC coach essentials, travel umbrella.'
+    desc: 'Smart traveler: versatile capsule wardrobe, day-to-evening outfits, transit comfort essentials, travel umbrella.'
   },
   {
     id: 'LUXURY',
@@ -49,14 +56,25 @@ export default function TripForm({ onSubmit, loading }) {
     return d.toISOString().split('T')[0];
   };
 
-  const [fromCity, setFromCity] = useState('New York, USA');
-  const [selectedCountry, setSelectedCountry] = useState('India');
-  const [destinationCity, setDestinationCity] = useState('Hyderabad');
-  const [customCity, setCustomCity] = useState('');
-  const [isCustomCity, setIsCustomCity] = useState(false);
+  // Departure (From) State
+  const [fromCountry, setFromCountry] = useState('United States');
+  const [fromCity, setFromCity] = useState('New York');
+  const [isFromCustom, setIsFromCustom] = useState(false);
+  const [fromCustomCity, setFromCustomCity] = useState('');
+  const [fromCustomCountry, setFromCustomCountry] = useState('');
+
+  // Destination (To) State
+  const [destCountry, setDestCountry] = useState('India');
+  const [destCity, setDestCity] = useState('Hyderabad');
+  const [isDestCustom, setIsDestCustom] = useState(false);
+  const [destCustomCity, setDestCustomCity] = useState('');
+  const [destCustomCountry, setDestCustomCountry] = useState('');
+
+  // Geolocation state
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState('');
 
+  // Trip Dates and Details
   const [startDate, setStartDate] = useState(getTomorrow());
   const [endDate, setEndDate] = useState(getFutureDate(5));
   const [transportMode, setTransportMode] = useState('TRAIN');
@@ -68,7 +86,7 @@ export default function TripForm({ onSubmit, loading }) {
   const [showTierSelector, setShowTierSelector] = useState(false);
   const [generationCount, setGenerationCount] = useState(0);
 
-  // Auto-detect browser geolocation
+  // Auto-detect browser geolocation for Departure
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
@@ -76,45 +94,80 @@ export default function TripForm({ onSubmit, loading }) {
     }
 
     setDetectingLocation(true);
-    setLocationStatus('Requesting location access from your browser...');
+    setLocationStatus('Requesting GPS location access...');
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        setLocationStatus('Resolving your city name...');
+        setLocationStatus('Resolving your city and country...');
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
           const data = await res.json();
-          const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || 'Current Location';
-          const country = data.address?.country || '';
-          const detectedOrigin = country ? `${city}, ${country}` : city;
-          setFromCity(detectedOrigin);
-          setLocationStatus(`Location detected: ${detectedOrigin}`);
+          const detectedCity = data.address?.city || data.address?.town || data.address?.village || data.address?.state_district || 'Hyderabad';
+          const detectedCountry = data.address?.country || 'India';
+
+          // Match in existing list or set custom
+          const matchedCountry = Object.keys(countryCityData).find(
+            (c) => c.toLowerCase() === detectedCountry.toLowerCase()
+          );
+
+          if (matchedCountry) {
+            setFromCountry(matchedCountry);
+            setIsFromCustom(false);
+            const citiesInCountry = countryCityData[matchedCountry];
+            const matchedCity = citiesInCountry.find((c) => c.toLowerCase() === detectedCity.toLowerCase());
+            if (matchedCity) {
+              setFromCity(matchedCity);
+            } else {
+              setFromCity(citiesInCountry[0] || detectedCity);
+            }
+          } else {
+            setIsFromCustom(true);
+            setFromCountry('Custom');
+            setFromCustomCity(detectedCity);
+            setFromCustomCountry(detectedCountry);
+          }
+
+          setLocationStatus(`Departure set to: ${detectedCity}, ${detectedCountry}`);
         } catch (err) {
-          setFromCity('Hyderabad, India');
-          setLocationStatus('Location detected: Hyderabad, India');
+          setFromCountry('India');
+          setFromCity('Hyderabad');
+          setIsFromCustom(false);
+          setLocationStatus('Departure set to: Hyderabad, India');
         } finally {
           setDetectingLocation(false);
         }
       },
       (err) => {
         console.warn('Geolocation denied or unavailable:', err);
-        setLocationStatus('Location access skipped. You can enter your origin city manually.');
+        setLocationStatus('Location access skipped. Please choose from dropdowns.');
         setDetectingLocation(false);
       },
       { timeout: 8000 }
     );
   };
 
-  const handleCountryChange = (country) => {
-    setSelectedCountry(country);
+  const handleFromCountryChange = (country) => {
+    setFromCountry(country);
     if (country === 'Custom') {
-      setIsCustomCity(true);
-      setDestinationCity('');
+      setIsFromCustom(true);
+      setFromCity('');
     } else {
-      setIsCustomCity(false);
+      setIsFromCustom(false);
       const cities = countryCityData[country] || [];
-      setDestinationCity(cities[0] || country);
+      setFromCity(cities[0] || country);
+    }
+  };
+
+  const handleDestCountryChange = (country) => {
+    setDestCountry(country);
+    if (country === 'Custom') {
+      setIsDestCustom(true);
+      setDestCity('');
+    } else {
+      setIsDestCustom(false);
+      const cities = countryCityData[country] || [];
+      setDestCity(cities[0] || country);
     }
   };
 
@@ -131,12 +184,34 @@ export default function TripForm({ onSubmit, loading }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const finalDestCity = isCustomCity ? customCity.trim() : destinationCity;
 
-    if (!finalDestCity) {
-      alert('Please specify your destination city.');
+    const resolvedFromCity = isFromCustom ? fromCustomCity.trim() : fromCity.trim();
+    const resolvedFromCountry = isFromCustom ? fromCustomCountry.trim() : fromCountry.trim();
+
+    const resolvedDestCity = isDestCustom ? destCustomCity.trim() : destCity.trim();
+    const resolvedDestCountry = isDestCustom ? destCustomCountry.trim() : destCountry.trim();
+
+    if (!resolvedFromCity) {
+      alert('Please specify your departure origin city.');
       return;
     }
+
+    if (!resolvedDestCity) {
+      alert('Please specify your travel destination city.');
+      return;
+    }
+
+    // Validate that Origin and Destination are not the exact same city in the same country
+    if (
+      resolvedFromCity.toLowerCase() === resolvedDestCity.toLowerCase() &&
+      resolvedFromCountry.toLowerCase() === resolvedDestCountry.toLowerCase()
+    ) {
+      alert(
+        `Departure origin and travel destination cannot be the exact same place (${resolvedFromCity}, ${resolvedFromCountry}). Please select a distinct destination.`
+      );
+      return;
+    }
+
     if (days !== null && days <= 0) {
       alert('End date must be on or after start date.');
       return;
@@ -145,16 +220,20 @@ export default function TripForm({ onSubmit, loading }) {
     const nextCount = generationCount + 1;
     setGenerationCount(nextCount);
 
-    // If triggered again or user desires alternate tiers, reveal tier choices
+    // If triggered multiple times or user desired alternate tiers, reveal tier choices
     if (nextCount > 1) {
       setShowTierSelector(true);
     }
 
+    const finalOrigin = `${resolvedFromCity}, ${resolvedFromCountry !== 'Custom' ? resolvedFromCountry : ''}`.replace(/,\s*$/, '');
+    const finalDest = `${resolvedDestCity}, ${resolvedDestCountry !== 'Custom' ? resolvedDestCountry : ''}`.replace(/,\s*$/, '');
+
     onSubmit({
-      originCity: fromCity.trim(),
-      destinationCountry: selectedCountry,
-      destinationCity: finalDestCity,
-      destination: `${finalDestCity}, ${selectedCountry !== 'Custom' ? selectedCountry : ''}`.replace(/,\s*$/, ''),
+      originCountry: resolvedFromCountry,
+      originCity: finalOrigin,
+      destinationCountry: resolvedDestCountry,
+      destinationCity: resolvedDestCity,
+      destination: finalDest,
       startDate,
       endDate,
       durationDays: days,
@@ -165,21 +244,22 @@ export default function TripForm({ onSubmit, loading }) {
     });
   };
 
-  const currentCityList = countryCityData[selectedCountry] || [];
+  const currentFromCityList = countryCityData[fromCountry] || [];
+  const currentDestCityList = countryCityData[destCountry] || [];
 
   return (
     <form onSubmit={handleSubmit} className="card-panel no-print" style={{
       padding: '2rem',
       marginBottom: '2rem'
     }}>
-      {/* Header (No Emojis) */}
+      {/* Header (Strictly Zero Emojis) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <h2 style={{ fontSize: '1.35rem', color: '#0f172a', fontWeight: '800', margin: 0, letterSpacing: '-0.02em' }}>
             Plan Your Travel Route & Packing List
           </h2>
           <p style={{ fontSize: '0.88rem', color: '#64748b', marginTop: '0.2rem' }}>
-            Weather forecast, cultural standards, transit kit, and clothing calculations.
+            Smart weather forecast, cultural standards, transit kit, and clothing calculations.
           </p>
         </div>
         {days !== null && days > 0 && (
@@ -189,7 +269,7 @@ export default function TripForm({ onSubmit, loading }) {
         )}
       </div>
 
-      {/* From (Origin) with Geolocation */}
+      {/* 1. DEPARTURE (FROM) SECTION */}
       <div style={{
         background: '#f8fafc',
         border: '1px solid #e2e8f0',
@@ -197,9 +277,9 @@ export default function TripForm({ onSubmit, loading }) {
         padding: '1.25rem',
         marginBottom: '1.5rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <label style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1e293b' }}>
-            Where are you traveling from? (Current Location or Origin)
+            Departure Location (From)
           </label>
           <button
             type="button"
@@ -220,22 +300,95 @@ export default function TripForm({ onSubmit, loading }) {
           </button>
         </div>
 
-        <input
-          type="text"
-          className="input-clean"
-          value={fromCity}
-          onChange={(e) => setFromCity(e.target.value)}
-          placeholder="e.g. New York, USA or London, UK or Mumbai, India"
-          required
-        />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '0.75rem' }}>
+          {/* Departure Country */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '0.35rem' }}>
+              Departure Country
+            </label>
+            <select
+              className="input-clean"
+              value={fromCountry}
+              onChange={(e) => handleFromCountryChange(e.target.value)}
+            >
+              {Object.keys(countryCityData).map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+              <option value="Custom">Other Country / Region</option>
+            </select>
+          </div>
+
+          {/* Departure City */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '0.35rem' }}>
+              Departure City
+            </label>
+            {!isFromCustom ? (
+              <select
+                className="input-clean"
+                value={fromCity}
+                onChange={(e) => setFromCity(e.target.value)}
+              >
+                {currentFromCityList.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            ) : (
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  className="input-clean"
+                  placeholder="Enter departure city..."
+                  value={fromCustomCity}
+                  onChange={(e) => setFromCustomCity(e.target.value)}
+                  required
+                />
+                <input
+                  type="text"
+                  className="input-clean"
+                  placeholder="Country name..."
+                  value={fromCustomCountry}
+                  onChange={(e) => setFromCustomCountry(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Departure Quick City Chips */}
+        {!isFromCustom && currentFromCityList.length > 0 && (
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Popular in {fromCountry}:</span>
+            {currentFromCityList.slice(0, 6).map((city) => (
+              <button
+                key={city}
+                type="button"
+                onClick={() => setFromCity(city)}
+                style={{
+                  background: fromCity.toLowerCase() === city.toLowerCase() ? '#2563eb' : '#ffffff',
+                  color: fromCity.toLowerCase() === city.toLowerCase() ? '#ffffff' : '#334155',
+                  border: `1px solid ${fromCity.toLowerCase() === city.toLowerCase() ? '#2563eb' : '#cbd5e1'}`,
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '6px',
+                  fontSize: '0.78rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                {city}
+              </button>
+            ))}
+          </div>
+        )}
+
         {locationStatus && (
-          <div style={{ fontSize: '0.8rem', color: '#059669', marginTop: '0.4rem', fontWeight: '500' }}>
+          <div style={{ fontSize: '0.8rem', color: '#059669', marginTop: '0.5rem', fontWeight: '500' }}>
             {locationStatus}
           </div>
         )}
       </div>
 
-      {/* Destination: Country & City Hierarchy */}
+      {/* 2. DESTINATION (TO) SECTION */}
       <div style={{
         background: '#f8fafc',
         border: '1px solid #e2e8f0',
@@ -244,68 +397,77 @@ export default function TripForm({ onSubmit, loading }) {
         marginBottom: '1.5rem'
       }}>
         <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1e293b', marginBottom: '0.75rem' }}>
-          Where are you traveling to? (Select Country and Specific City)
+          Travel Destination (To)
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '0.75rem' }}>
-          {/* Country Selector */}
+          {/* Destination Country */}
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '0.35rem' }}>
-              Country
+              Destination Country
             </label>
             <select
               className="input-clean"
-              value={selectedCountry}
-              onChange={(e) => handleCountryChange(e.target.value)}
+              value={destCountry}
+              onChange={(e) => handleDestCountryChange(e.target.value)}
             >
               {Object.keys(countryCityData).map((country) => (
                 <option key={country} value={country}>{country}</option>
               ))}
-              <option value="Custom">Other Country / City</option>
+              <option value="Custom">Other Country / Region</option>
             </select>
           </div>
 
-          {/* City Selector */}
+          {/* Destination City */}
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '0.35rem' }}>
-              City
+              Destination City
             </label>
-            {!isCustomCity ? (
+            {!isDestCustom ? (
               <select
                 className="input-clean"
-                value={destinationCity}
-                onChange={(e) => setDestinationCity(e.target.value)}
+                value={destCity}
+                onChange={(e) => setDestCity(e.target.value)}
               >
-                {currentCityList.map((city) => (
+                {currentDestCityList.map((city) => (
                   <option key={city} value={city}>{city}</option>
                 ))}
               </select>
             ) : (
-              <input
-                type="text"
-                className="input-clean"
-                placeholder="Type your destination city..."
-                value={customCity}
-                onChange={(e) => setCustomCity(e.target.value)}
-                required
-              />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  className="input-clean"
+                  placeholder="Enter destination city..."
+                  value={destCustomCity}
+                  onChange={(e) => setDestCustomCity(e.target.value)}
+                  required
+                />
+                <input
+                  type="text"
+                  className="input-clean"
+                  placeholder="Country name..."
+                  value={destCustomCountry}
+                  onChange={(e) => setDestCustomCountry(e.target.value)}
+                />
+              </div>
             )}
           </div>
         </div>
 
-        {/* Quick City Chips for Selected Country */}
-        {!isCustomCity && currentCityList.length > 0 && (
+        {/* Quick City Chips for Destination */}
+        {!isDestCustom && currentDestCityList.length > 0 && (
           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Popular in {selectedCountry}:</span>
-            {currentCityList.slice(0, 6).map((city) => (
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Popular in {destCountry}:</span>
+            {currentDestCityList.slice(0, 6).map((city) => (
               <button
                 key={city}
                 type="button"
-                onClick={() => setDestinationCity(city)}
+                onClick={() => setDestCity(city)}
                 style={{
-                  background: destinationCity.toLowerCase() === city.toLowerCase() ? '#2563eb' : '#ffffff',
-                  color: destinationCity.toLowerCase() === city.toLowerCase() ? '#ffffff' : '#334155',
-                  border: `1px solid ${destinationCity.toLowerCase() === city.toLowerCase() ? '#2563eb' : '#cbd5e1'}`,
+                  background: destCity.toLowerCase() === city.toLowerCase() ? '#2563eb' : '#ffffff',
+                  color: destCity.toLowerCase() === city.toLowerCase() ? '#ffffff' : '#334155',
+                  border: `1px solid ${destCity.toLowerCase() === city.toLowerCase() ? '#2563eb' : '#cbd5e1'}`,
                   padding: '0.2rem 0.6rem',
                   borderRadius: '6px',
                   fontSize: '0.78rem',
@@ -320,7 +482,7 @@ export default function TripForm({ onSubmit, loading }) {
         )}
       </div>
 
-      {/* Dates Grid */}
+      {/* 3. DATES GRID */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '0.35rem' }}>
@@ -349,7 +511,7 @@ export default function TripForm({ onSubmit, loading }) {
         </div>
       </div>
 
-      {/* Mode of Transportation (No emojis in heading) */}
+      {/* 4. MODE OF TRANSPORTATION */}
       <div style={{ marginBottom: '1.5rem' }}>
         <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '0.6rem' }}>
           Mode of Transportation
@@ -380,7 +542,7 @@ export default function TripForm({ onSubmit, loading }) {
         </div>
       </div>
 
-      {/* Travel Style and Luggage Weight */}
+      {/* 5. TRAVEL STYLE AND MAX WEIGHT */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '0.35rem' }}>
@@ -412,7 +574,7 @@ export default function TripForm({ onSubmit, loading }) {
         </div>
       </div>
 
-      {/* Discrete Packing Method (Budget to Luxury) Option */}
+      {/* 6. DISCRETE PACKING METHOD (BUDGET TO LUXURY) */}
       {showTierSelector && (
         <div style={{
           background: '#f8fafc',
@@ -456,7 +618,7 @@ export default function TripForm({ onSubmit, loading }) {
         </div>
       )}
 
-      {/* Toggle Tier link if not already shown */}
+      {/* Toggle Tier link if not already displayed */}
       {!showTierSelector && (
         <div style={{ textAlign: 'right', marginBottom: '1.25rem' }}>
           <button
@@ -477,7 +639,7 @@ export default function TripForm({ onSubmit, loading }) {
         </div>
       )}
 
-      {/* Submit Button (No Emojis) */}
+      {/* Submit Button */}
       <button
         type="submit"
         disabled={loading}
