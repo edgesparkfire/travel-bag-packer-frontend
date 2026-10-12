@@ -1,329 +1,442 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import Navbar from './components/Navbar';
+import AuthView from './components/AuthView';
+import TripForm from './components/TripForm';
+import PackingChecklist from './components/PackingChecklist';
+import CityGuideView from './components/CityGuideView';
+import GeminiAdvisorView from './components/GeminiAdvisorView';
 import { tripService } from './services/api';
 
-const containerStyle = {
-  padding: '2.5rem 1.5rem',
-  fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
-  maxWidth: '780px',
-  margin: '0 auto',
-  color: '#e2e8f0',
-  background: '#0f172a',
-  minHeight: '100vh',
-  lineHeight: 1.6
-};
-
-const formStyle = {
-  background: '#1e293b',
-  padding: '1.75rem',
-  borderRadius: '12px',
-  marginBottom: '2.5rem',
-  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
-  border: '1px solid #334155'
-};
-
-const gridStyle = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '1rem'
-};
-
-const inputGroupStyle = { marginBottom: '1.25rem' };
-const labelStyle = { display: 'block', marginBottom: '0.4rem', fontWeight: '600', fontSize: '0.9rem', color: '#94a3b8' };
-const inputStyle = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  borderRadius: '8px',
-  border: '1px solid #475569',
-  background: '#0f172a',
-  color: '#f8fafc',
-  boxSizing: 'border-box',
-  fontSize: '0.95rem',
-  outline: 'none',
-  transition: 'border-color 0.2s'
-};
-
-const buttonStyle = {
-  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-  color: 'white',
-  padding: '0.85rem 1.5rem',
-  border: 'none',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  fontWeight: '700',
-  fontSize: '1rem',
-  width: '100%',
-  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-  transition: 'all 0.2s ease'
-};
-
-const cardStyle = {
-  background: '#1e293b',
-  padding: '1.5rem',
-  marginBottom: '1.5rem',
-  borderRadius: '12px',
-  borderLeft: '5px solid #10b981',
-  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
-  border: '1px solid #334155'
-};
-
-const categoryBadge = (category) => {
-  const colors = {
-    'Clothing': { bg: '#1e3a8a', text: '#93c5fd' },
-    'Essentials': { bg: '#701a75', text: '#f5d0fe' },
-    'Weather Gear': { bg: '#854d0e', text: '#fde047' }
-  };
-  const color = colors[category] || { bg: '#334155', text: '#cbd5e1' };
-  return {
-    display: 'inline-block',
-    padding: '0.2rem 0.6rem',
-    borderRadius: '12px',
-    fontSize: '0.75rem',
-    fontWeight: 'bold',
-    background: color.bg,
-    color: color.text,
-    marginLeft: '0.5rem'
-  };
-};
-
-function App() {
+export default function App() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('trips'); // 'trips', 'completed', 'guide', 'ai'
+  const [selectedTripId, setSelectedTripId] = useState(null);
 
-  // Form input states
-  const [destination, setDestination] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [maxWeight, setMaxWeight] = useState(23.0);
-  const [submitting, setSubmitting] = useState(false);
+  // Authentication State
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('travel_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [error, setError] = useState(null);
 
   const fetchTrips = () => {
     tripService.getAllTrips()
-      .then(data => {
-        setTrips(Array.isArray(data) ? data : []);
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setTrips(list);
+        if (list.length > 0 && !selectedTripId) {
+          setSelectedTripId(list[0].id);
+        }
         setLoading(false);
         setError(null);
       })
       .catch((err) => {
-        console.error("Failed to load trips:", err);
-        setError("Could not connect to Spring Boot server. Please ensure backend is running.");
+        console.error('Failed to load trips from backend:', err);
+        setError('Could not connect to Spring Boot backend. Please verify server is running on port 8080.');
         setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchTrips();
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!destination || !startDate || !endDate) {
-      alert("Please fill in destination and travel dates!");
-      return;
+    if (user) {
+      fetchTrips();
     }
+  }, [user]);
 
-    setSubmitting(true);
-    const newTrip = {
-      destination,
-      startDate,
-      endDate,
-      maxWeightLimit: parseFloat(maxWeight) || 0
-    };
+  const handleLoginSuccess = (userData) => {
+    setUser(userData);
+    localStorage.setItem('travel_user', JSON.stringify(userData));
+  };
 
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('travel_user');
+  };
+
+  const handleCreateTrip = async (tripData) => {
+    setFormLoading(true);
     try {
-      const savedTrip = await tripService.createTrip(newTrip);
-      setTrips(prev => [savedTrip, ...prev]);
-      setDestination('');
-      setStartDate('');
-      setEndDate('');
-      setMaxWeight(23.0);
+      const createdTrip = await tripService.createTrip(tripData);
+      setTrips((prev) => [createdTrip, ...prev]);
+      setSelectedTripId(createdTrip.id);
       setError(null);
     } catch (err) {
-      console.error("Error saving trip:", err);
-      alert("Failed to submit trip to Spring Boot server.");
+      console.error('Error creating trip:', err);
+      alert('Failed to submit trip to Spring Boot server.');
     } finally {
-      setSubmitting(false);
+      setFormLoading(false);
     }
   };
 
-  const handleTogglePacked = async (tripId, itemId) => {
-    try {
-      const updatedTrip = await tripService.toggleItemPacked(tripId, itemId);
-      setTrips(prev => prev.map(t => t.id === tripId ? updatedTrip : t));
-    } catch (err) {
-      console.error("Error toggling packed status:", err);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{ ...containerStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <h2>Connecting to Spring Boot Backend...</h2>
-      </div>
+  const handleToggleItem = (tripId, itemId, isPacked) => {
+    // 1. Instant optimistic local UI update (0ms latency)
+    setTrips((prev) =>
+      prev.map((t) => {
+        if (t.id !== tripId) return t;
+        return {
+          ...t,
+          packingList: (t.packingList || []).map((item) =>
+            item.itemId === itemId ? { ...item, isPacked } : item
+          )
+        };
+      })
     );
+
+    // 2. Background sync with backend
+    tripService.toggleItemPacked(tripId, itemId, isPacked)
+      .then((updatedTrip) => {
+        // Sync with verified backend state
+        setTrips((prev) => prev.map((t) => (t.id === tripId ? updatedTrip : t)));
+      })
+      .catch((err) => {
+        console.error('Error syncing packed item toggle:', err);
+      });
+  };
+
+  const handleToggleComplete = async (tripId, isCompleted) => {
+    try {
+      const updatedTrip = await tripService.toggleTripCompleted(tripId, isCompleted);
+      setTrips((prev) => prev.map((t) => (t.id === tripId ? updatedTrip : t)));
+    } catch (err) {
+      console.error('Error toggling trip complete:', err);
+    }
+  };
+
+  const handleBudgetTierChange = async (tripId, budgetTier) => {
+    try {
+      const updatedTrip = await tripService.changeBudgetTier(tripId, budgetTier);
+      setTrips((prev) => prev.map((t) => (t.id === tripId ? updatedTrip : t)));
+    } catch (err) {
+      console.error('Error updating budget tier:', err);
+    }
+  };
+
+  const handleDeleteTrip = async (tripId) => {
+    if (!window.confirm('Are you sure you want to delete this trip itinerary?')) return;
+    try {
+      await tripService.deleteTrip(tripId);
+      setTrips((prev) => prev.filter((t) => t.id !== tripId));
+      if (selectedTripId === tripId) {
+        setSelectedTripId(null);
+      }
+    } catch (err) {
+      console.error('Error deleting trip:', err);
+    }
+  };
+
+  const handleTripUpdated = (updatedTrip) => {
+    setTrips((prev) => prev.map((t) => (t.id === updatedTrip.id ? updatedTrip : t)));
+  };
+
+  if (!user) {
+    return <AuthView onLoginSuccess={handleLoginSuccess} />;
   }
 
+  const activeTrips = trips.filter((t) => !t.isCompleted);
+  const completedTrips = trips.filter((t) => t.isCompleted);
+  const currentSelectedTrip = trips.find((t) => t.id === selectedTripId) || trips[0] || null;
+
+  const totalItems = trips.reduce((acc, t) => acc + (t.packingList?.length || 0), 0);
+  const totalPacked = trips.reduce((acc, t) => acc + (t.packingList?.filter(i => i.isPacked).length || 0), 0);
+  const overallProgress = totalItems > 0 ? Math.round((totalPacked / totalItems) * 100) : 0;
+
   return (
-    <div style={containerStyle}>
-      <header style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-        <h1 style={{ fontSize: '2.2rem', margin: '0 0 0.5rem 0', background: 'linear-gradient(to right, #34d399, #38bdf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          🎒 Travel Backpack Planner
-        </h1>
-        <p style={{ color: '#94a3b8', margin: 0 }}>
-          Spring Boot + MongoDB Flexible Packing Rules Engine
-        </p>
-      </header>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
+      {/* Top Navbar */}
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        user={user}
+        onLogout={handleLogout}
+      />
 
-      {error && (
-        <div style={{ background: '#7f1d1d', border: '1px solid #ef4444', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', color: '#fecaca' }}>
-          ⚠️ {error}
-        </div>
-      )}
-
-      {/* Interactive Trip Creation Form */}
-      <form onSubmit={handleSubmit} style={formStyle}>
-        <h3 style={{ marginTop: 0, color: '#34d399', fontSize: '1.25rem', marginBottom: '1.25rem' }}>
-          ✨ Plan a New Journey
-        </h3>
-
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>Destination</label>
-          <input
-            type="text"
-            placeholder="e.g. Paris, Tokyo, London, Zurich"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            style={inputStyle}
-            required
-          />
-        </div>
-
-        <div style={gridStyle}>
-          <div style={inputGroupStyle}>
-            <label style={labelStyle}>Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={inputStyle}
-              required
-            />
+      {/* Main Container */}
+      <main style={{ maxWidth: '1200px', width: '92%', margin: '1.5rem auto', flex: 1 }}>
+        {/* Error Banner if Backend is down */}
+        {error && (
+          <div style={{
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#b91c1c',
+            padding: '1rem',
+            borderRadius: '12px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div>{error}</div>
+            <button
+              onClick={fetchTrips}
+              className="btn-secondary"
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+            >
+              Retry Connection
+            </button>
           </div>
-
-          <div style={inputGroupStyle}>
-            <label style={labelStyle}>End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={inputStyle}
-              required
-            />
-          </div>
-        </div>
-
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>Max Luggage Weight Limit (kg)</label>
-          <input
-            type="number"
-            step="0.1"
-            value={maxWeight}
-            onChange={(e) => setMaxWeight(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-
-        <button type="submit" disabled={submitting} style={buttonStyle}>
-          {submitting ? 'Generating Itinerary...' : '🚀 Generate Trip & Packing List'}
-        </button>
-      </form>
-
-      {/* Render Active Itineraries */}
-      <section>
-        <h2 style={{ fontSize: '1.5rem', borderBottom: '1px solid #334155', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
-          🗺️ Active Itineraries ({trips.length})
-        </h2>
-
-        {trips.length === 0 ? (
-          <p style={{ color: '#64748b', textAlign: 'center', padding: '2rem' }}>
-            No trips planned yet! Fill out the form above to add one.
-          </p>
-        ) : (
-          trips.map((trip) => {
-            const packingList = trip.packingList || [];
-            const packedCount = packingList.filter(i => i.isPacked).length;
-            const progress = packingList.length > 0 ? Math.round((packedCount / packingList.length) * 100) : 0;
-
-            return (
-              <div key={trip.id} style={cardStyle}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.4rem', color: '#f8fafc' }}>
-                      📍 {trip.destination}
-                    </h3>
-                    <p style={{ margin: '0 0 0.25rem 0', color: '#94a3b8', fontSize: '0.9rem' }}>
-                      🗓️ {trip.startDate} to {trip.endDate} ({trip.durationDays || '1'} days)
-                    </p>
-                    <p style={{ margin: '0 0 0.5rem 0', color: '#94a3b8', fontSize: '0.9rem' }}>
-                      ⚖️ Max Allowance: {trip.maxWeightLimit} kg
-                    </p>
-                  </div>
-
-                  <div style={{ textAlign: 'right', minWidth: '130px' }}>
-                    <span style={{ fontSize: '0.9rem', color: '#34d399', fontWeight: 'bold' }}>
-                      {packedCount}/{packingList.length} Packed ({progress}%)
-                    </span>
-                    <div style={{ width: '130px', height: '6px', background: '#334155', borderRadius: '3px', marginTop: '6px', overflow: 'hidden' }}>
-                      <div style={{ width: `${progress}%`, height: '100%', background: '#10b981', transition: 'width 0.3s' }}></div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Packing List Checklist */}
-                {packingList.length > 0 && (
-                  <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #334155' }}>
-                    <h4 style={{ margin: '0 0 0.75rem 0', color: '#cbd5e1', fontSize: '1rem' }}>
-                      📋 Automated Packing Checklist
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.6rem' }}>
-                      {packingList.map((item) => (
-                        <label
-                          key={item.itemId}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            background: item.isPacked ? '#064e3b' : '#0f172a',
-                            border: `1px solid ${item.isPacked ? '#059669' : '#334155'}`,
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={Boolean(item.isPacked)}
-                            onChange={() => handleTogglePacked(trip.id, item.itemId)}
-                            style={{ marginRight: '0.6rem', accentColor: '#10b981', cursor: 'pointer' }}
-                          />
-                          <span style={{ flex: 1, textDecoration: item.isPacked ? 'line-through' : 'none', color: item.isPacked ? '#a7f3d0' : '#f1f5f9', fontSize: '0.85rem' }}>
-                            {item.itemName} <strong style={{ color: '#38bdf8' }}>×{item.quantity}</strong>
-                          </span>
-                          <span style={categoryBadge(item.category)}>
-                            {item.category}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })
         )}
-      </section>
+
+        {/* Dashboard Metric Overview Cards (No heading emojis) */}
+        <div className="no-print" style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '1rem',
+          marginBottom: '2rem'
+        }}>
+          <div className="card-panel" style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+              Active Itineraries
+            </div>
+            <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', margin: '0.2rem 0' }}>
+              {activeTrips.length}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#059669', fontWeight: '600' }}>
+              {completedTrips.length} completed trips saved
+            </div>
+          </div>
+
+          <div className="card-panel" style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+              Overall Packing Status
+            </div>
+            <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#2563eb', margin: '0.2rem 0' }}>
+              {overallProgress}%
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+              {totalPacked} of {totalItems} items packed
+            </div>
+          </div>
+
+          <div className="card-panel" style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+              Current Destination
+            </div>
+            <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#0f172a', margin: '0.2rem 0' }}>
+              {currentSelectedTrip ? (currentSelectedTrip.destinationCity || currentSelectedTrip.destination) : 'Hyderabad'}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+              {currentSelectedTrip?.weatherSummary || 'Clear • 24°C'}
+            </div>
+          </div>
+
+          <div className="card-panel" style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+              AI Travel Assistant
+            </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#7c3aed', margin: '0.2rem 0' }}>
+              {currentSelectedTrip?.aiChatHistory?.length || 1} Messages
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#059669', fontWeight: '600' }}>
+              Saved inside trip
+            </div>
+          </div>
+        </div>
+
+        {/* TAB 1: ACTIVE TRIPS */}
+        {activeTab === 'trips' && (
+          <div>
+            <TripForm onSubmit={handleCreateTrip} loading={formLoading} />
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+                Active Packing Checklists ({activeTrips.length})
+              </h3>
+              {completedTrips.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('completed')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#059669',
+                    fontSize: '0.88rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  View {completedTrips.length} Completed Trips ➔
+                </button>
+              )}
+            </div>
+
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+                Loading your itineraries...
+              </div>
+            ) : activeTrips.length === 0 ? (
+              <div className="card-panel" style={{ textAlign: 'center', padding: '3rem 1.5rem', color: '#64748b' }}>
+                <h4 style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: '700' }}>No Active Trips Planned Yet</h4>
+                <p style={{ fontSize: '0.88rem', marginTop: '0.25rem' }}>
+                  Use the route form above to plan your journey and generate your customized packing kit.
+                </p>
+              </div>
+            ) : (
+              activeTrips.map((trip) => (
+                <PackingChecklist
+                  key={trip.id}
+                  trip={trip}
+                  onToggleItem={handleToggleItem}
+                  onToggleComplete={handleToggleComplete}
+                  onBudgetTierChange={handleBudgetTierChange}
+                  onDeleteTrip={handleDeleteTrip}
+                  onOpenChat={(t) => {
+                    setSelectedTripId(t.id);
+                    setActiveTab('ai');
+                  }}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: COMPLETED TRIPS WITH SAVED CHAT HISTORY */}
+        {activeTab === 'completed' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+                  Completed Trip History & Saved AI Conversations
+                </h3>
+                <p style={{ fontSize: '0.88rem', color: '#64748b', marginTop: '0.2rem' }}>
+                  Review your finished trips, packed items, and previous Gemini AI discussions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('trips')}
+                className="btn-secondary"
+              >
+                ← Back to Active Trips
+              </button>
+            </div>
+
+            {completedTrips.length === 0 ? (
+              <div className="card-panel" style={{ textAlign: 'center', padding: '3rem 1.5rem', color: '#64748b' }}>
+                <h4 style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: '700' }}>No Completed Trips Yet</h4>
+                <p style={{ fontSize: '0.88rem', marginTop: '0.25rem' }}>
+                  When you finish packing an active trip, click "Mark Completed" to archive it here with its full Gemini AI chat history.
+                </p>
+              </div>
+            ) : (
+              completedTrips.map((trip) => (
+                <div key={trip.id} style={{ marginBottom: '2.5rem' }}>
+                  <PackingChecklist
+                    trip={trip}
+                    onToggleItem={handleToggleItem}
+                    onToggleComplete={handleToggleComplete}
+                    onBudgetTierChange={handleBudgetTierChange}
+                    onDeleteTrip={handleDeleteTrip}
+                    onOpenChat={(t) => {
+                      setSelectedTripId(t.id);
+                      setActiveTab('ai');
+                    }}
+                  />
+
+                  {/* Saved AI Chat History for this completed trip */}
+                  {trip.aiChatHistory && trip.aiChatHistory.length > 0 && (
+                    <div className="card-panel" style={{ padding: '1.5rem', marginTop: '-1rem', borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0, background: '#f8fafc' }}>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: '#0f172a' }}>
+                          Saved Gemini AI Conversation from this Trip ({trip.aiChatHistory.length} messages)
+                        </h4>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto' }}>
+                        {trip.aiChatHistory.map((msg, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              padding: '0.75rem 1rem',
+                              borderRadius: '12px',
+                              background: msg.sender === 'user' ? '#eff6ff' : '#ffffff',
+                              border: `1px solid ${msg.sender === 'user' ? '#bfdbfe' : '#e2e8f0'}`,
+                              fontSize: '0.88rem',
+                              color: '#1e293b',
+                              lineHeight: '1.45',
+                              whiteSpace: 'pre-wrap'
+                            }}
+                          >
+                            <div style={{ fontSize: '0.75rem', fontWeight: '700', color: msg.sender === 'user' ? '#2563eb' : '#7c3aed', marginBottom: '0.2rem' }}>
+                              {msg.sender === 'user' ? 'Traveler Question' : 'Gemini AI Response'} • {msg.timestamp || ''}
+                            </div>
+                            {msg.text}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: CITY SURVIVAL GUIDE */}
+        {activeTab === 'guide' && (
+          <CityGuideView
+            defaultCity={currentSelectedTrip ? (currentSelectedTrip.destinationCity || currentSelectedTrip.destination) : 'Hyderabad'}
+          />
+        )}
+
+        {/* TAB 4: GEMINI AI ADVISOR WITH IN-TRIP CHAT PERSISTENCE */}
+        {activeTab === 'ai' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+                  Gemini Travel Assistant & Cultural Guide
+                </h3>
+                <p style={{ fontSize: '0.88rem', color: '#64748b', marginTop: '0.2rem' }}>
+                  Chat in real-time about clothing, electronics, Indian train standards (RAC/WL/Tatkal), and etiquette.
+                </p>
+              </div>
+
+              {trips.length > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: '600' }}>Active Itinerary:</span>
+                  <select
+                    className="input-clean"
+                    value={selectedTripId || ''}
+                    onChange={(e) => setSelectedTripId(e.target.value)}
+                    style={{ padding: '0.35rem 0.75rem', width: 'auto', fontSize: '0.85rem' }}
+                  >
+                    {trips.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.destinationCity || t.destination} ({t.startDate}) {t.isCompleted ? '✓' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <GeminiAdvisorView
+              activeTrip={currentSelectedTrip}
+              onTripUpdated={handleTripUpdated}
+            />
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="no-print" style={{
+        background: '#ffffff',
+        borderTop: '1px solid #e2e8f0',
+        padding: '1.5rem',
+        textAlign: 'center',
+        color: '#64748b',
+        fontSize: '0.85rem'
+      }}>
+        <div style={{ fontWeight: '700', color: '#0f172a' }}>
+          Travel Bag Packer
+        </div>
+        <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '0.2rem' }}>
+          Smart weather. Smart packing.
+        </div>
+      </footer>
     </div>
   );
 }
-
-export default App;

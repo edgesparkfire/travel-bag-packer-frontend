@@ -1,13 +1,20 @@
 import axios from 'axios';
 
-// Connects directly to running Spring Boot backend port
-const API_URL = 'http://localhost:8080/api/trips';
+// Dynamically points to Vercel/Render env var in production or localhost:8080 in dev
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
 
 export const tripService = {
   // Fetch all trips
   getAllTrips: async () => {
     try {
-      const response = await axios.get(API_URL);
+      const response = await api.get('/api/trips');
       return response.data;
     } catch (error) {
       console.error("Error fetching trips from backend:", error);
@@ -18,7 +25,7 @@ export const tripService = {
   // Fetch single trip details
   getTripById: async (id) => {
     try {
-      const response = await axios.get(`${API_URL}/${id}`);
+      const response = await api.get(`/api/trips/${id}`);
       return response.data;
     } catch (error) {
       console.error("Error fetching trip details:", error);
@@ -26,10 +33,10 @@ export const tripService = {
     }
   },
 
-  // Save a brand new trip (triggers rules engine & weather service)
+  // Save new trip (triggers packing rules, weather & transport adaptors)
   createTrip: async (tripData) => {
     try {
-      const response = await axios.post(API_URL, tripData);
+      const response = await api.post('/api/trips', tripData);
       return response.data;
     } catch (error) {
       console.error("Error creating a new trip:", error);
@@ -37,13 +44,91 @@ export const tripService = {
     }
   },
 
-  // Toggle item packed status
-  toggleItemPacked: async (tripId, itemId) => {
+  // Change packing budget tier (BUDGET, BALANCED, LUXURY)
+  changeBudgetTier: async (tripId, budgetTier) => {
     try {
-      const response = await axios.patch(`${API_URL}/${tripId}/items/${itemId}`);
+      const response = await api.patch(`/api/trips/${tripId}/tier`, { budgetTier });
+      return response.data;
+    } catch (error) {
+      console.error("Error changing budget tier:", error);
+      throw error;
+    }
+  },
+
+  // Toggle item packed status
+  toggleItemPacked: async (tripId, itemId, isPacked) => {
+    try {
+      const payload = isPacked !== undefined ? { isPacked } : null;
+      const response = await api.patch(`/api/trips/${tripId}/items/${itemId}`, payload);
       return response.data;
     } catch (error) {
       console.error("Error toggling packed status:", error);
+      throw error;
+    }
+  },
+
+  // Toggle trip completion
+  toggleTripCompleted: async (tripId, isCompleted) => {
+    try {
+      const payload = isCompleted !== undefined ? { isCompleted } : null;
+      const response = await api.patch(`/api/trips/${tripId}/complete`, payload);
+      return response.data;
+    } catch (error) {
+      console.error("Error toggling trip completion:", error);
+      throw error;
+    }
+  },
+
+  // Interactive chat with Gemini AI saved within the trip
+  chatWithGemini: async (tripId, message) => {
+    try {
+      const response = await api.post(`/api/trips/${tripId}/chat`, { message });
+      return response.data;
+    } catch (error) {
+      console.error("Error chatting with Gemini AI:", error);
+      throw error;
+    }
+  },
+
+  // Delete trip
+  deleteTrip: async (id) => {
+    try {
+      await api.delete(`/api/trips/${id}`);
+    } catch (error) {
+      console.error("Error deleting trip:", error);
+      throw error;
+    }
+  }
+};
+
+export const cityGuideService = {
+  // Fetch verified first-time visitor city guide
+  getGuide: async (city) => {
+    try {
+      const response = await api.get('/api/city-guide', {
+        params: { city }
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching city guide:", error);
+      throw error;
+    }
+  }
+};
+
+export const aiAdvisorService = {
+  // Fetch Gemini AI packing hacks & local advice with origin & destination
+  getAiTips: async (origin, destination, durationDays, transportMode) => {
+    try {
+      const response = await api.post('/api/ai/tips', {
+        origin,
+        destination,
+        durationDays,
+        transportMode
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching AI tips:", error);
       throw error;
     }
   }
