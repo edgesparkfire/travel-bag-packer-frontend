@@ -79,7 +79,7 @@ export default function GeminiAdvisorView({ activeTrip, onTripUpdated }) {
         ...prev,
         {
           sender: 'gemini',
-          text: 'Could not reach AI server. Please verify Spring Boot is running on localhost:8080.',
+          text: 'Could not reach server. Please check your connection or backend service status.',
           timestamp: timeNow
         }
       ]);

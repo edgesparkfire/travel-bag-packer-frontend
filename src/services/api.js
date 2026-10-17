@@ -1,7 +1,12 @@
 import axios from 'axios';
 
 // Dynamically points to Vercel/Render env var in production or localhost:8080 in dev
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const defaultBaseUrl = import.meta.env.PROD
+  ? 'https://travel-bag-backend.onrender.com'
+  : 'http://localhost:8080';
+
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl;
+const BASE_URL = rawBaseUrl.replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL: BASE_URL,

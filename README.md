@@ -1,16 +1,37 @@
-# React + Vite
+﻿# Travel Bag Packer Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for the Travel Bag Packer application, configured for zero-configuration deployment on **Render Static Sites**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Quick Deployment on Render
 
-## React Compiler
+### Option 1: Automatic via Blueprint (`render.yaml`)
+1. In the [Render Dashboard](https://dashboard.render.com), click **New +** > **Blueprint**.
+2. Connect your GitHub repository: `travel-bag-packer-frontend`.
+3. Render automatically detects `render.yaml` and deploys the Static Site.
+4. Set `VITE_API_BASE_URL` to your backend URL (e.g. `https://travel-bag-backend.onrender.com`).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Option 2: Manual Setup on Render
+1. In the Render Dashboard, click **New +** > **Static Site**.
+2. Connect your GitHub repository: `travel-bag-packer-frontend`.
+3. Configure the settings:
+   - **Name**: `travel-bag-frontend`
+   - **Branch**: `main`
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `dist`
+4. Under **Environment Variables**:
+   - `VITE_API_BASE_URL`: `https://travel-bag-backend.onrender.com` (or your backend URL)
+5. Under **Redirects/Rewrites**:
+   - `public/_redirects` is bundled in the build output (`dist/_redirects`), routing `/*` to `/index.html` with HTTP 200.
+6. Click **Create Static Site**.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🛠️ Local Development
+
+```bash
+npm install
+npm run dev
+```
+The app will run at `http://localhost:5173` and connect to backend on `http://localhost:8080`.
