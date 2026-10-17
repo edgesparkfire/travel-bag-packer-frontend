@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Dynamically points to Vercel/Render env var in production or localhost:8080 in dev
 const defaultBaseUrl = import.meta.env.PROD
-  ? 'https://travel-bag-backend.onrender.com'
+  ? 'https://travel-bag-packer.onrender.com'
   : 'http://localhost:8080';
 
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl;
