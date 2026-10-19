@@ -1,37 +1,33 @@
-﻿# Travel Bag Packer Frontend
+﻿# 🧳 Travel Bag Packer — Frontend
 
-React + Vite frontend for the Travel Bag Packer application, configured for zero-configuration deployment on **Render Static Sites**.
+> **Smart weather. Smart packing. AI travel recommendations.**
 
----
-
-## 🚀 Quick Deployment on Render
-
-### Option 1: Automatic via Blueprint (`render.yaml`)
-1. In the [Render Dashboard](https://dashboard.render.com), click **New +** > **Blueprint**.
-2. Connect your GitHub repository: `travel-bag-packer-frontend`.
-3. Render automatically detects `render.yaml` and deploys the Static Site.
-4. Set `VITE_API_BASE_URL` to your backend URL (e.g. `https://travel-bag-backend.onrender.com`).
-
-### Option 2: Manual Setup on Render
-1. In the Render Dashboard, click **New +** > **Static Site**.
-2. Connect your GitHub repository: `travel-bag-packer-frontend`.
-3. Configure the settings:
-   - **Name**: `travel-bag-frontend`
-   - **Branch**: `main`
-   - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: `dist`
-4. Under **Environment Variables**:
-   - `VITE_API_BASE_URL`: `https://travel-bag-backend.onrender.com` (or your backend URL)
-5. Under **Redirects/Rewrites**:
-   - `public/_redirects` is bundled in the build output (`dist/_redirects`), routing `/*` to `/index.html` with HTTP 200.
-6. Click **Create Static Site**.
+### 🔗 Live Links
+- 🌐 **Live Web Application**: [https://travel-bag-frontend.onrender.com](https://travel-bag-frontend.onrender.com)
+- ⚙️ **Backend API**: [https://travel-bag-packer.onrender.com](https://travel-bag-packer.onrender.com)
+- 🏥 **API Health Check**: [https://travel-bag-packer.onrender.com/api/health](https://travel-bag-packer.onrender.com/api/health)
+- 📦 **Backend GitHub Repository**: [https://github.com/edgesparkfire/travel-bag-packer](https://github.com/edgesparkfire/travel-bag-packer)
 
 ---
 
-## 🛠️ Local Development
+## ✨ Overview
+Frontend application for **Travel Bag Packer**, built with React 19 and Vite. Connects to the Spring Boot & PostgreSQL backend hosted on Render.
+
+## 🛠️ Tech Stack
+- **Framework**: React 19 + Vite
+- **Styling**: Modern Responsive CSS
+- **API Client**: Axios
+- **Deployment Platform**: Render (Static Site with SPA rewrite rules)
+
+---
+
+## 💻 Local Setup & Development
 
 ```bash
+# 1. Install dependencies
 npm install
+
+# 2. Run local development server
 npm run dev
 ```
-The app will run at `http://localhost:5173` and connect to backend on `http://localhost:8080`.
+Runs at `http://localhost:5173` and defaults to `http://localhost:8080` for backend API.
